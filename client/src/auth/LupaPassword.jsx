@@ -1,67 +1,56 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setEmail(e.target.value);
-    
-    // Clear error when user starts typing
-    if (error) {
-      setError('');
-    }
+    if (error) setError('');
   };
 
   const validateForm = () => {
-    if (!email.trim()) {
-      return 'Email wajib diisi';
-    }
-    
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return 'Format email tidak valid';
-    }
-    
+    if (!email.trim()) return 'Email wajib diisi';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Format email tidak valid';
     return '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const validationError = validateForm();
-    
     if (validationError) {
       setError(validationError);
       return;
     }
-
     setIsSubmitting(true);
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Handle successful submission
-      console.log('Reset password request for:', email);
+      await axios.post("http://localhost:5000/api/send-reset-otp", { email });
       setIsSuccess(true);
-      
+      setTimeout(() => {
+        navigate('/auth/reset-password-otp', { state: { email } });
+      }, 1200);
     } catch (error) {
-      console.error('Reset password error:', error);
-      setError('Terjadi kesalahan. Silakan coba lagi.');
+      if (error.response?.status === 404) {
+        setError('Email tidak terdaftar.');
+      } else {
+        setError('Terjadi kesalahan. Silakan coba lagi.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBackToLogin = () => {
-    // Reset form state when going back
     setEmail('');
     setError('');
     setIsSuccess(false);
+    navigate('/auth/login');
   };
 
   return (
@@ -136,37 +125,32 @@ const ForgotPassword = () => {
               </button>
             </form>
           ) : (
-            /* Success Message */
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <Send className="w-8 h-8 text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Link Reset Terkirim!
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  Tautan reset telah dikirim ke email Anda. Silakan cek inbox dan folder spam.
-                </p>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Email:</strong> {email}
-                </p>
-              </div>
+            <div className="text-center py-8">
+              <p className="text-blue-600 font-semibold mb-4">Kode OTP reset password telah dikirim ke email Anda.</p>
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Kembali ke Login
+              </button>
             </div>
           )}
 
           {/* Back to Login Link */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={handleBackToLogin}
-              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Kembali ke Login
-            </button>
-          </div>
+          {!isSuccess && (
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Kembali ke Login
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

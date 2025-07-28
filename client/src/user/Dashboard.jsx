@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, Clock, CheckCircle, Zap, Plus } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import StatCard from './StatCard';
 import RecentReports from './RecentReport';
 import Notifications from './Notifications';
@@ -16,7 +16,12 @@ const Dashboard = ({
   onUpdateUser 
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = location.state?.user || userProp;
+
+  const handleCreateReport = () => {
+    navigate('/user/formlaporan');
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -70,7 +75,10 @@ const Dashboard = ({
                 <p className="text-gray-600 mb-6">
                   Laporkan masalah atau keluhan Anda dengan mudah dan cepat
                 </p>
-                <button className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <button
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={handleCreateReport}
+                >
                   <Plus className="w-5 h-5 mr-2" />
                   Buat Laporan Sekarang
                 </button>

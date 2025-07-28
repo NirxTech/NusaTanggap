@@ -60,6 +60,18 @@ const Login = () => {
     }
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      // ...proses login ke backend...
+      // Jika login sukses:
+      localStorage.setItem('email', formData.email); // <-- LETAKKAN DI SINI
+      navigate('/user/dashboard');
+    } catch (err) {
+      // handle error login
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 pt-24">
       <div className="max-w-md w-full">

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Mail, Shield, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
 import axios from "axios";
+import { toast } from 'react-toastify';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Verifikasi = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -10,8 +11,10 @@ const Verifikasi = () => {
   const [resendTimer, setResendTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   
   const inputRefs = useRef([]);
+  const navigate = useNavigate();
   const location = useLocation();
   const targetEmail = location.state?.email || "";
 
@@ -83,9 +86,15 @@ const Verifikasi = () => {
         otp: otpCode,
       });
       if (res.data.verified) {
-        // Berhasil
-        alert("Verifikasi berhasil!");
-        // Redirect atau aksi lain
+        // Kirim data user ke backend untuk register
+        const pendingUser = JSON.parse(localStorage.getItem('pendingUser'));
+        if (pendingUser) {
+          await axios.post("http://localhost:5000/api/register", pendingUser);
+          localStorage.removeItem('pendingUser');
+        }
+        toast.success('Verifikasi berhasil!', {
+          onClose: () => navigate('/auth/login')
+        });
       } else {
         setError("Kode verifikasi salah.");
         setIsShaking(true);
@@ -95,6 +104,7 @@ const Verifikasi = () => {
       }
     } catch {
       setError("Gagal memverifikasi OTP");
+      toast.error('Verifikasi gagal! Kode salah atau sudah kadaluarsa.');
     } finally {
       setIsLoading(false);
     }
@@ -102,17 +112,16 @@ const Verifikasi = () => {
 
   // Resend OTP
   const handleResend = async () => {
-    if (!canResend) return;
-    setCanResend(false);
-    setResendTimer(120);
-    setError('');
+    setIsResending(true);
     try {
       await axios.post("http://localhost:5000/api/send-otp", { email: targetEmail });
-      alert("Kode OTP baru dikirim!");
-    } catch {
-      setError("Gagal mengirim ulang kode.");
-      setCanResend(true);
-      setResendTimer(0);
+      toast.success("Kode OTP baru dikirim!");
+      setResendTimer(120);
+      setCanResend(false);
+    } catch (err) {
+      toast.error("Gagal mengirim OTP. Coba lagi.");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -210,7 +219,7 @@ const Verifikasi = () => {
             <p className="text-sm text-gray-600 mb-2">Tidak menerima kode?</p>
             <button
               onClick={handleResend}
-              disabled={!canResend}
+              disabled={!canResend || isResending}
               className={`
                 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
                 transition-all duration-200
@@ -220,9 +229,11 @@ const Verifikasi = () => {
                 }
               `}
             >
-              <RotateCcw className={`w-4 h-4 ${canResend ? '' : 'opacity-50'}`} />
+              <RotateCcw
+                className={`w-4 h-4 ${isResending ? 'animate-spin' : ''} ${canResend ? '' : 'opacity-50'}`}
+              />
               {canResend ? (
-                <span>Kirim Ulang</span>
+                <span>{isResending ? 'Mengirim...' : 'Kirim Ulang'}</span>
               ) : (
                 <span>Kirim ulang dalam {formatTime(resendTimer)}</span>
               )}

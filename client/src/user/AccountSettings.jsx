@@ -1,16 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { User, Mail, Phone, Lock, Save, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
-const AccountSettings = ({ user, onUpdateUser }) => {
+const AccountSettings = ({ onUpdateUser }) => {
   const [formData, setFormData] = useState({
-    nama_lengkap: user.nama_lengkap,
-    email: user.email,
-    phone: user.phone,
+    nama_lengkap: '',
+    email: '',
+    phone: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
     emailNotifications: true
   });
+
+  // Ambil email user dari localStorage/session/context
+  const email = localStorage.getItem('userEmail');
+
+  useEffect(() => {
+    if (email) {
+      axios.get(`http://localhost:5000/api/user/${email}`)
+        .then(res => {
+          setFormData(prev => ({
+            ...prev,
+            nama_lengkap: res.data.nama_lengkap,
+            email: res.data.email,
+            phone: res.data.nomor_hp
+          }));
+        })
+        .catch(() => {
+          // handle error jika user tidak ditemukan
+        });
+    }
+  }, [email]);
 
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -22,12 +45,17 @@ const AccountSettings = ({ user, onUpdateUser }) => {
     }));
   };
 
-  const handleSaveProfile = () => {
-    onUpdateUser({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone
-    });
+  const handleSaveProfile = async () => {
+    try {
+      await axios.put(`http://localhost:5000/api/user/${email}`, {
+        nama_lengkap: formData.nama_lengkap,
+        email: formData.email,
+        nomor_hp: formData.phone
+      });
+      toast.success('Profil berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal memperbarui profil!');
+    }
   };
 
   return (

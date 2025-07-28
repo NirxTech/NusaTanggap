@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Phone, Lock, CheckCircle } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from "axios";
 
 const Daftar = () => {
+  const location = useLocation();
   const [formData, setFormData] = useState({
     namaLengkap: '',
     email: '',
@@ -88,13 +89,8 @@ const Daftar = () => {
     setIsSubmitting(true);
     
     try {
-      await axios.post("http://localhost:5000/api/register", {
-        namaLengkap: formData.namaLengkap,
-        email: formData.email,
-        nomorHP: formData.nomorHP,
-        kataSandi: formData.kataSandi,
-      });
-      // Lanjut ke verifikasi
+      await axios.post("http://localhost:5000/api/send-otp", { email: formData.email });
+      localStorage.setItem('pendingUser', JSON.stringify(formData)); // Simpan data user
       navigate('/auth/verifikasi', { state: { email: formData.email } });
       // Reset form
       setFormData({
@@ -111,6 +107,8 @@ const Daftar = () => {
       setIsSubmitting(false);
     }
   };
+
+  const targetEmail = location.state?.email || localStorage.getItem('pendingEmail') || "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-12 px-4 sm:px-6 lg:px-8 pt-24">
