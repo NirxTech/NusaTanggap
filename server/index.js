@@ -4,13 +4,15 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const mysql = require('mysql2');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- Pindahkan koneksi database ke sini ---
+// Koneksi ke database
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root', 
@@ -20,9 +22,8 @@ const db = mysql.createConnection({
 
 db.connect(err => {
   if (err) throw err;
-  console.log('MySQL Connected!');
+  console.log('MySQL Connected');
 });
-// -------------------------------------------
 
 let otpStore = {}; // sementara, untuk menyimpan OTP per email
 let otpResetStore = {}; // OTP khusus lupa password
@@ -33,7 +34,7 @@ function generateOTP() {
 }
 
 app.post("/api/send-otp", async (req, res) => {
-  const { email } = req.body;
+  const email = req.body.email.trim().toLowerCase();
   const otp = generateOTP();
   otpStore[email] = otp;
 
@@ -89,12 +90,26 @@ app.post("/api/send-otp", async (req, res) => {
 });
 
 app.post("/api/verify-otp", (req, res) => {
-  const { email, otp } = req.body;
+  const email = req.body.email.trim().toLowerCase();
+  const otp = req.body.otp;
+  console.log('Verifikasi OTP untuk email:', email, 'OTP:', otp);
   if (otpStore[email] === otp) {
     delete otpStore[email];
-    return res.json({ verified: true });
+    db.query(
+      "UPDATE users SET is_verified = 1 WHERE email = ?",
+      [email],
+      (err, result) => {
+        console.log('Update result:', result);
+        if (err) return res.status(500).json({ verified: false, message: "Gagal update status verifikasi" });
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ verified: false, message: "Email tidak ditemukan" });
+        }
+        return res.json({ verified: true });
+      }
+    );
+  } else {
+    return res.status(400).json({ verified: false, message: "OTP salah atau kadaluarsa!" });
   }
-  return res.status(400).json({ verified: false, message: "OTP salah!" });
 });
 
 app.post("/api/register", async (req, res) => {
@@ -245,5 +260,296 @@ app.post("/api/reset-password", async (req, res) => {
   );
 });
 
+// Konfigurasi folder & nama file upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // pastikan folder uploads sudah ada
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
+app.post('/api/laporan', upload.single('foto'), (req, res) => {
+  const {
+    nama,
+    email,
+    judul,
+    tanggal,
+    kategori,
+    deskripsi,
+    lokasi
+  } = req.body;
+
+  const foto = req.file ? req.file.filename : null;
+  const tanggal_lapor = new Date();
+
+  const sql = `
+    INSERT INTO laporan 
+    (nama, email, judul, tanggal_kejadian, kategori, deskripsi, foto, lokasi, tanggal_lapor, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'menunggu')
+  `;
+
+  db.query(sql, [nama, email, judul, tanggal, kategori, deskripsi, foto, lokasi, tanggal_lapor], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: 'Laporan berhasil dikirim!' });
+  });
+});
+
+app.get('/api/laporan', (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email diperlukan' });
+
+  db.query(
+    "SELECT * FROM laporan WHERE email = ? ORDER BY tanggal_lapor DESC",
+    [email],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
+});
+
+// Ambil semua laporan (untuk admin)
+app.get('/api/laporan/all', (req, res) => {
+  db.query("SELECT * FROM laporan ORDER BY tanggal_lapor DESC", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// Update status laporan (admin)
+app.put('/api/laporan/:id/status', upload.single('bukti_foto'), (req, res) => {
+  const { id } = req.params;
+  const { status, bukti_lokasi, bukti_keterangan, alasan_ditolak } = req.body;
+  const bukti_foto = req.file ? req.file.filename : null;
+
+  // Validasi
+  if (!status) {
+    return res.status(400).json({ error: 'Status wajib diisi' });
+  }
+  if (status === 'selesai') {
+    if (!bukti_foto || !bukti_lokasi || !bukti_keterangan) {
+      return res.status(400).json({ error: 'Bukti foto, lokasi, dan keterangan wajib diisi untuk status selesai' });
+    }
+  }
+  if (status === 'ditolak' && !alasan_ditolak) {
+    return res.status(400).json({ error: 'Alasan penolakan wajib diisi' });
+  }
+
+  // Ambil email user dari laporan
+  db.query("SELECT email FROM laporan WHERE id = ?", [id], (err, results) => {
+    if (err || results.length === 0) return res.status(500).json({ error: 'Laporan tidak ditemukan' });
+    const userEmail = results[0].email;
+
+    // Update laporan
+    const updateFields = status === 'ditolak'
+      ? [status, bukti_foto, bukti_lokasi, bukti_keterangan, alasan_ditolak, id]
+      : status === 'selesai'
+      ? [status, bukti_foto, bukti_lokasi, bukti_keterangan, id]
+      : [status, id];
+    const updateSql = status === 'ditolak'
+      ? "UPDATE laporan SET status = ?, bukti_foto = ?, bukti_lokasi = ?, bukti_keterangan = ?, alasan_ditolak = ? WHERE id = ?"
+      : status === 'selesai'
+      ? "UPDATE laporan SET status = ?, bukti_foto = ?, bukti_lokasi = ?, bukti_keterangan = ? WHERE id = ?"
+      : "UPDATE laporan SET status = ? WHERE id = ?";
+
+    db.query(updateSql, updateFields, (err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      // Notifikasi
+      const notifTitle = status === 'ditolak'
+        ? 'Laporan Ditolak'
+        : status === 'selesai'
+        ? 'Laporan Selesai'
+        : 'Status Laporan Diubah';
+
+      const notifMessage = status === 'ditolak'
+        ? `Laporan Anda ditolak. Alasan: ${alasan_ditolak || '-'}`
+        : status === 'selesai'
+        ? 'Laporan Anda telah selesai diproses.'
+        : `Status laporan Anda diubah menjadi ${status}.`;
+
+      db.query(
+        "INSERT INTO notifications (email, type, title, message) VALUES (?, ?, ?, ?)",
+        [userEmail, status === 'ditolak' ? 'warning' : 'success', notifTitle, notifMessage]
+      );
+
+      res.json({ success: true });
+    });
+  });
+});
+
+app.use('/uploads', express.static('uploads'));
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.post('/api/admin/login', (req, res) => {
+  const { email, password } = req.body;
+  db.query('SELECT * FROM admin WHERE email = ?', [email], async (err, results) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    if (results.length === 0) return res.status(401).json({ message: 'Email atau password salah' });
+
+    const admin = results[0];
+    const match = await bcrypt.compare(password, admin.password);
+    if (!match) return res.status(401).json({ message: 'Email atau password salah' });
+
+    delete admin.password;
+    res.json(admin);
+  });
+});
+
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    if (results.length === 0) return res.status(401).json({ message: 'Email atau password salah' });
+
+    const user = results[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: 'Email atau password salah' });
+
+    delete user.password;
+    res.json(user);
+  });
+});
+
+app.get('/api/users/all', (req, res) => {
+  db.query("SELECT id, nama_lengkap, email, nomor_hp, is_verified, created_at FROM users ORDER BY created_at DESC", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+app.get('/api/stats', (req, res) => {
+  const { year, month, kategori, status } = req.query;
+
+  // Build WHERE clause
+  let where = [];
+  let params = [];
+
+  if (year) {
+    where.push("YEAR(tanggal_lapor) = ?");
+    params.push(year);
+  }
+  if (month) {
+    where.push("MONTH(tanggal_lapor) = ?");
+    params.push(month);
+  }
+  if (kategori) {
+    where.push("kategori = ?");
+    params.push(kategori);
+  }
+  if (status) {
+    where.push("status = ?");
+    params.push(status);
+  }
+
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  // Stats Query
+  const statsQuery = `
+    SELECT 
+      (SELECT COUNT(*) FROM laporan ${whereClause}) AS total,
+      (SELECT COUNT(*) FROM laporan ${whereClause.length ? whereClause + " AND status = 'menunggu'" : "WHERE status = 'menunggu'"}) AS menunggu,
+      (SELECT COUNT(*) FROM laporan ${whereClause.length ? whereClause + " AND status = 'diproses'" : "WHERE status = 'diproses'"}) AS diproses,
+      (SELECT COUNT(*) FROM laporan ${whereClause.length ? whereClause + " AND status = 'selesai'" : "WHERE status = 'selesai'"}) AS selesai,
+      (SELECT COUNT(*) FROM laporan ${whereClause.length ? whereClause + " AND status = 'ditolak'" : "WHERE status = 'ditolak'"}) AS ditolak,
+      (SELECT COUNT(*) FROM users) AS users,
+      (SELECT COUNT(*) FROM laporan WHERE DATE(tanggal_lapor) = CURDATE()) AS today
+  `;
+
+  db.query(statsQuery, params, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const stats = results[0];
+
+    // Kategori statistik
+    const kategoriQuery = `SELECT kategori, COUNT(*) as jumlah FROM laporan ${whereClause} GROUP BY kategori`;
+    db.query(kategoriQuery, params, (err, kategoriResults) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const kategoriStats = {};
+      kategoriResults.forEach(row => {
+        kategoriStats[row.kategori] = row.jumlah;
+      });
+
+      // Monthly statistik
+      const monthlyQuery = `
+        SELECT 
+          DATE_FORMAT(tanggal_lapor, '%Y-%m') AS bulan,
+          COUNT(*) as jumlah 
+        FROM laporan 
+        ${whereClause}
+        GROUP BY bulan 
+        ORDER BY bulan DESC
+        LIMIT 6
+      `;
+      db.query(monthlyQuery, params, (err, monthlyResults) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // Trend statistik
+        const trendQuery = `
+          SELECT 
+            DATE(tanggal_lapor) AS tanggal,
+            COUNT(*) as jumlah 
+          FROM laporan 
+          ${whereClause}
+          GROUP BY tanggal 
+          ORDER BY tanggal DESC
+          LIMIT 7
+        `;
+        db.query(trendQuery, params, (err, trendResults) => {
+          if (err) return res.status(500).json({ error: err.message });
+
+          // Format hasil trend
+          const trend = trendResults.map(row => ({ tanggal: row.tanggal, jumlah: row.jumlah }));
+
+          res.json({
+            stats: {
+              total: stats.total,
+              menunggu: stats.menunggu,
+              diproses: stats.diproses,
+              selesai: stats.selesai,
+              ditolak: stats.ditolak,
+              users: stats.users,
+              today: stats.today,
+              kategori: kategoriStats
+            },
+            monthly: monthlyResults,
+            pie: {
+              menunggu: stats.menunggu,
+              diproses: stats.diproses,
+              selesai: stats.selesai,
+              ditolak: stats.ditolak
+            },
+            trend: trend
+          });
+        });
+      });
+    });
+  });
+});
+
+app.get('/api/notifications', (req, res) => {
+  const { email } = req.query;
+  db.query(
+    "SELECT * FROM notifications WHERE email = ? ORDER BY date DESC LIMIT 30",
+    [email],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
+});
+
+app.patch('/api/notifications/mark-all-read', (req, res) => {
+  const email = req.query.email;
+  db.query('UPDATE notifications SET isRead=1 WHERE email=?', [email], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});

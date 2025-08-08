@@ -89,9 +89,17 @@ const Daftar = () => {
     setIsSubmitting(true);
     
     try {
-      await axios.post("http://localhost:5000/api/send-otp", { email: formData.email });
-      localStorage.setItem('pendingUser', JSON.stringify(formData)); // Simpan data user
-      navigate('/auth/verifikasi', { state: { email: formData.email } });
+      // 1. Simpan user ke database (is_verified=0)
+      await axios.post("http://localhost:5000/api/register", {
+        ...formData,
+        email: formData.email.trim().toLowerCase()
+      });
+      // 2. Kirim OTP ke email
+      await axios.post("http://localhost:5000/api/send-otp", { 
+        email: formData.email.trim().toLowerCase()
+      });
+      // 3. Navigasi ke halaman verifikasi
+      navigate('/auth/verifikasi', { state: { email: formData.email.trim().toLowerCase() } });
       // Reset form
       setFormData({
         namaLengkap: '',

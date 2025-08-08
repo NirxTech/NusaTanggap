@@ -18,17 +18,28 @@ import AccountSettings from './user/AccountSettings';
 import ResetPasswordOtp from './auth/ResetPasswordOtp';
 import SetNewPassword from './auth/SetNewPassword';
 import FormLaporan from './user/FormLapor';
-import { mockUser, mockStats, mockReports, mockNotifications } from './user/data/mockData';
+
+// Admin components
+import LoginAdmin from './admin/LoginAdmin';
+import AdminDashboard from './admin/AdminDashboard';
+import SidebarAdmin from './admin/Sidebar';
+import HeaderAdmin from './admin/Header';
+import StatsGrid from './admin/StatsGrid';
+import ReportsTable from './admin/ReportsTable';
+import ReportDetailModal from './admin/ReportDetailModal';
+import PhotoUpload from './admin/PhotoUpload';
+import LocationCapture from './admin/LocationCapture';
+import AdminStatistics from './admin/AdminStatistics';
 
 function MainPage() {
   return (
-    <>
+    <div className="flex flex-col min-h-screen bg-white">
       <Hero />
       <Features />
       <Stats />
       <FAQ />
       <Footer />
-    </>
+    </div>
   );
 }
 
@@ -39,7 +50,7 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen">
+      <div className="min-h-screen flex flex-col bg-white">
         <ToastContainer position="top-center" autoClose={2000} />
         <Routes>
           {/* Landing & Auth routes with Navbar */}
@@ -54,26 +65,34 @@ function App() {
           <Route
             path="/user/dashboard"
             element={
-              <Dashboard
-                // Ganti mockUser dengan user asli jika sudah ada
-                user={mockUser}
-                stats={mockStats}
-                reports={mockReports}
-                notifications={mockNotifications}
-                activeTab="home"
-                onUpdateUser={handleUpdateUser}
-              />
+              <div className="min-h-screen flex flex-col bg-white">
+                <Dashboard
+                  activeTab="home"
+                  onUpdateUser={handleUpdateUser}
+                />
+              </div>
             }
           />
           <Route
             path="/user/account-settings"
             element={
-              <AccountSettings onUpdateUser={handleUpdateUser} />
+              <div className="min-h-screen flex flex-col bg-white">
+                <AccountSettings onUpdateUser={handleUpdateUser} />
+              </div>
             }
           />
           <Route path="/auth/reset-password-otp" element={<ResetPasswordOtp />} />
           <Route path="/auth/set-new-password" element={<SetNewPassword />} />
           <Route path="/user/formlaporan" element={<FormLaporan />} />
+
+          {/* Admin routes */}
+          <Route path="/admin/login" element={<LoginAdmin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/stats" element={<StatsGrid />} />
+          <Route path="/admin/reports" element={<ReportsTable />} />
+          <Route path="/admin/report-detail" element={<ReportDetailModal />} />
+          <Route path="/admin/photo-upload" element={<PhotoUpload />} />
+          <Route path="/admin/location-capture" element={<LocationCapture />} />
         </Routes>
       </div>
     </Router>

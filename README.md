@@ -74,7 +74,3 @@ Kontribusi sangat terbuka! Silakan fork, buat branch, dan pull request untuk fit
 
 ---
 
-HEAD
-**NusaTanggap** — Bersama membangun masyarakat yang lebih responsif dan transparan.
-=======
-**NusaTanggap** — Bersama membangun masyarakat yang lebih responsif dan transparan. ef4c80cf935acacb0e88ae936e6c7bcea17948d2

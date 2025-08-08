@@ -1,7 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle, AlertCircle, Info, Clock } from 'lucide-react';
 
-const Notifications = ({ notifications }) => {
+const Notifications = ({ user }) => {
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (user?.email) {
+      fetch(`http://localhost:5000/api/notifications?email=${user.email}`)
+        .then(res => res.json())
+        .then(data => setNotifications(data))
+        .catch(() => setNotifications([]));
+    }
+  }, [user]);
+
   const getNotificationIcon = (type) => {
     const icons = {
       success: CheckCircle,
@@ -29,6 +40,15 @@ const Notifications = ({ notifications }) => {
     return date.toLocaleDateString('id-ID');
   };
 
+  const handleMarkAllRead = async () => {
+    if (!user?.email) return;
+    await fetch(`http://localhost:5000/api/notifications/mark-all-read?email=${user.email}`, {
+      method: 'PATCH'
+    });
+    // Update state lokal agar UI langsung berubah
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200">
@@ -37,7 +57,10 @@ const Notifications = ({ notifications }) => {
             <Bell className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Notifikasi</h3>
           </div>
-          <button className="text-sm text-blue-600 hover:text-blue-800">
+          <button
+            className="text-sm text-blue-600 hover:text-blue-800"
+            onClick={handleMarkAllRead}
+          >
             Tandai semua dibaca
           </button>
         </div>

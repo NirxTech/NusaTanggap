@@ -16,7 +16,8 @@ const AccountSettings = ({ onUpdateUser }) => {
   });
 
   // Ambil email user dari localStorage/session/context
-  const email = localStorage.getItem('userEmail');
+  const storedUser = localStorage.getItem('nusatanggap_user');
+  const email = storedUser ? JSON.parse(storedUser).email : '';
 
   useEffect(() => {
     if (email) {

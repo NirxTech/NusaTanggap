@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const Login = () => {
+const LoginAdmin = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -21,7 +21,6 @@ const Login = () => {
       [name]: value
     }));
 
-    // Clear specific error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -51,19 +50,19 @@ const Login = () => {
     setIsSubmitting(true);
     setErrors({});
     try {
-      // POST ke endpoint login yang benar
-      const res = await axios.post('http://localhost:5000/api/login', {
+      // Ganti endpoint untuk login admin
+      const res = await axios.post('http://localhost:5000/api/admin/login', {
         email: formData.email,
         password: formData.password
       });
-      const user = res.data;
-      if (!user || !user.email) {
+      const admin = res.data;
+      if (!admin || !admin.email) {
         setErrors({ submit: 'Email atau password salah. Silakan coba lagi.' });
         setIsSubmitting(false);
         return;
       }
-      localStorage.setItem('nusatanggap_user', JSON.stringify(user));
-      navigate('/user/dashboard', { state: { user } });
+      localStorage.setItem('nusatanggap_admin', JSON.stringify(admin));
+      navigate('/admin/dashboard', { state: { admin } });
     } catch (error) {
       setErrors({ submit: 'Email atau password salah. Silakan coba lagi.' });
     } finally {
@@ -82,10 +81,10 @@ const Login = () => {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Masuk ke Akun
+            Masuk Admin
           </h1>
           <p className="text-gray-600">
-            Selamat datang kembali di NusaTanggap
+            Panel Khusus Admin NusaTanggap
           </p>
         </div>
 
@@ -110,7 +109,7 @@ const Login = () => {
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
-                  placeholder="Masukkan email Anda"
+                  placeholder="Masukkan email admin"
                 />
               </div>
               {errors.email && (
@@ -136,7 +135,7 @@ const Login = () => {
                   className={`block w-full pl-10 pr-10 py-3 border rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                     errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
-                  placeholder="Masukkan password Anda"
+                  placeholder="Masukkan password admin"
                 />
                 <button
                   type="button"
@@ -153,16 +152,6 @@ const Login = () => {
               {errors.password && (
                 <p className="mt-2 text-sm text-red-600">{errors.password}</p>
               )}
-              
-              {/* Forgot Password Link */}
-              <div className="mt-2 text-right">
-                <Link 
-                  to="/auth/lupa-password" 
-                  className="text-sm text-blue-600 hover:text-blue-800 underline"
-                >
-                  Lupa Password?
-                </Link>
-              </div>
             </div>
 
             {/* Submit Error */}
@@ -195,20 +184,10 @@ const Login = () => {
               )}
             </button>
           </form>
-
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Belum punya akun?{' '}
-              <Link to="/auth/Daftar" className="text-blue-600 hover:text-blue-800 font-medium underline">
-                Daftar di sini
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default LoginAdmin;

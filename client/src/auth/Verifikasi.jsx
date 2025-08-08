@@ -82,7 +82,7 @@ const Verifikasi = () => {
     setError('');
     try {
       const res = await axios.post("http://localhost:5000/api/verify-otp", {
-        email: targetEmail,
+        email: targetEmail.trim().toLowerCase(),
         otp: otpCode,
       });
       if (res.data.verified) {
@@ -114,7 +114,9 @@ const Verifikasi = () => {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await axios.post("http://localhost:5000/api/send-otp", { email: targetEmail });
+      await axios.post("http://localhost:5000/api/send-otp", { 
+        email: targetEmail.trim().toLowerCase() 
+      });
       toast.success("Kode OTP baru dikirim!");
       setResendTimer(120);
       setCanResend(false);
